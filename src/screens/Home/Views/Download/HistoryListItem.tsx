@@ -53,9 +53,8 @@ export default memo(({ item }: {
         {
           isFailed
             ? <Text style={styles.actionBtn} onPress={handleRetry} color={theme['c-primary-font']}>{t('download_retry')}</Text>
-            : null
+            : <Text style={styles.actionBtn} onPress={handleDelete} color={theme['c-error-font']}>{t('download_delete')}</Text>
         }
-        <Text style={styles.actionBtn} onPress={handleDelete} color={theme['c-error-font']}>{t('download_delete')}</Text>
       </View>
     </View>
   )

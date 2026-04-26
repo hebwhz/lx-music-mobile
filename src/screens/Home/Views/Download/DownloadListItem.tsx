@@ -11,7 +11,6 @@ const STATUS_TEXT_MAP = {
   run: 'download_status_downloading',
   waiting: 'download_status_waiting',
   pause: 'download_status_paused',
-  error: 'download_status_failed',
   completed: 'download_status_completed',
 } as const
 
@@ -32,7 +31,6 @@ export default memo(({ item }: {
   }
 
   const isCompleted = item.status === 'completed'
-  const isError = item.status === 'error'
 
   return (
     <View style={{ ...styles.container, borderBottomColor: theme['c-border-background'] }}>
@@ -40,9 +38,8 @@ export default memo(({ item }: {
         <Text numberOfLines={1} size={14} color={theme['c-font']}>{item.metadata.musicInfo.name}</Text>
         <Text numberOfLines={1} size={12} color={theme['c-font-label']}>{item.metadata.musicInfo.singer}</Text>
         <View style={styles.statusRow}>
-          <Text size={12} color={isError ? theme['c-error'] : theme['c-font-label']}>
+          <Text size={12} color={theme['c-font-label']}>
             {t(STATUS_TEXT_MAP[item.status])}
-            {isError && item.statusText ? `: ${item.statusText}` : ''}
           </Text>
           {
             item.status === 'run'

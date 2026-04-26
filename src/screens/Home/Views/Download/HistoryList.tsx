@@ -35,7 +35,7 @@ export default memo(() => {
   return (
     <View style={styles.container}>
       <FlatList
-        data={history}
+        data={[...history].reverse()}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <HistoryListItem item={item} />}
         contentContainerStyle={styles.listContent}

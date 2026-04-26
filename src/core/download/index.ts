@@ -84,7 +84,7 @@ const init = async(): Promise<void> => {
 
 const isMusicInList = (musicInfo: LX.Music.MusicInfoOnline): boolean => {
   return downloadState.tasks.some(t => t.metadata.musicInfo.id === musicInfo.id)
-    || downloadState.history.some(h => h.musicInfo.id === musicInfo.id)
+    || downloadState.history.some(h => h.musicInfo.id === musicInfo.id && h.status === 'completed')
 }
 
 const addTaskWithDownload = async(musicInfo: LX.Music.MusicInfoOnline, quality?: LX.Quality): Promise<boolean> => {
@@ -151,12 +151,29 @@ const addTaskWithDownload = async(musicInfo: LX.Music.MusicInfoOnline, quality?:
         })
 
         if (!url) {
-          updateTask(taskId, {
-            status: 'error',
-            statusText: global.i18n.t('download_url_failed'),
-          })
-          await saveDownloadTasks([...downloadState.tasks])
-          downloadEvent.downloadListUpdate()
+          const failedTask = downloadState.tasks.find(t => t.id === taskId)
+          if (failedTask) {
+            const historyItem: LX.Download.DownloadHistoryItem = {
+              id: failedTask.id,
+              musicInfo: failedTask.metadata.musicInfo,
+              quality: failedTask.metadata.quality,
+              ext: failedTask.metadata.ext,
+              fileName: failedTask.metadata.fileName,
+              filePath: failedTask.metadata.filePath,
+              status: 'failed',
+              downloadedSize: 0,
+              fileSize: 0,
+              addedTime: Date.now(),
+              completedTime: null,
+              errorMessage: global.i18n.t('download_url_failed'),
+            }
+            addHistory(historyItem)
+            removeTask(taskId)
+            await saveDownloadTasks(downloadState.tasks.filter(t => t.id !== taskId))
+            await saveDownloadHistory([...downloadState.history])
+            downloadEvent.downloadListUpdate()
+            downloadEvent.downloadHistoryUpdate()
+          }
           toast(global.i18n.t('download_url_failed'))
           return
         }
@@ -243,24 +260,68 @@ const addTaskWithDownload = async(musicInfo: LX.Music.MusicInfoOnline, quality?:
             downloadEvent.downloadHistoryUpdate()
           },
           async(completedTaskId, error) => {
-            updateTask(completedTaskId, {
-              status: 'error',
-              statusText: error,
-            })
-            await saveDownloadTasks([...downloadState.tasks])
-            downloadEvent.downloadListUpdate()
+            const failedTask = downloadState.tasks.find(t => t.id === completedTaskId)
+
+            if (failedTask) {
+              const historyItem: LX.Download.DownloadHistoryItem = {
+                id: failedTask.id,
+                musicInfo: failedTask.metadata.musicInfo,
+                quality: failedTask.metadata.quality,
+                ext: failedTask.metadata.ext,
+                fileName: failedTask.metadata.fileName,
+                filePath: failedTask.metadata.filePath,
+                status: 'failed',
+                downloadedSize: failedTask.downloaded,
+                fileSize: failedTask.total,
+                addedTime: Date.now(),
+                completedTime: null,
+                errorMessage: error,
+              }
+
+              addHistory(historyItem)
+              removeTask(completedTaskId)
+
+              await saveDownloadTasks(downloadState.tasks.filter(t => t.id !== completedTaskId))
+              await saveDownloadHistory([...downloadState.history])
+
+              downloadEvent.downloadListUpdate()
+              downloadEvent.downloadHistoryUpdate()
+            } else {
+              updateTask(completedTaskId, {
+                status: 'error',
+                statusText: error,
+              })
+              await saveDownloadTasks([...downloadState.tasks])
+              downloadEvent.downloadListUpdate()
+            }
             toast(global.i18n.t('download_failed') + ': ' + error)
           },
         )
       } catch (err: any) {
-        console.error('[Download] Failed to add task:', err)
-        updateTask(taskId, {
-          status: 'error',
-          statusText: err.message || global.i18n.t('download_failed'),
-        })
-        await saveDownloadTasks([...downloadState.tasks])
-        downloadEvent.downloadListUpdate()
-        toast(global.i18n.t('download_failed'))
+        const failedTask = downloadState.tasks.find(t => t.id === taskId)
+        if (failedTask) {
+          const historyItem: LX.Download.DownloadHistoryItem = {
+            id: failedTask.id,
+            musicInfo: failedTask.metadata.musicInfo,
+            quality: failedTask.metadata.quality,
+            ext: failedTask.metadata.ext,
+            fileName: failedTask.metadata.fileName,
+            filePath: failedTask.metadata.filePath,
+            status: 'failed',
+            downloadedSize: failedTask.downloaded,
+            fileSize: failedTask.total,
+            addedTime: Date.now(),
+            completedTime: null,
+            errorMessage: err.message || global.i18n.t('download_failed'),
+          }
+          addHistory(historyItem)
+          removeTask(taskId)
+          await saveDownloadTasks(downloadState.tasks.filter(t => t.id !== taskId))
+          await saveDownloadHistory([...downloadState.history])
+          downloadEvent.downloadListUpdate()
+          downloadEvent.downloadHistoryUpdate()
+        }
+        toast(global.i18n.t('download_failed') + ': ' + (err.message || 'unknown'))
       }
     })()
 

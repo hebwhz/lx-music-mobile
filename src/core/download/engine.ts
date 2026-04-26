@@ -8,16 +8,19 @@ import { writeFile } from '@/utils/fs'
 const MAX_CONCURRENT = 3
 const MIN_REQUIRED_SPACE = 100 * 1024 * 1024 // 100MB
 const COVER_CACHE_DIR = RNFS.DocumentDirectoryPath + '/cover_cache'
+const PROGRESS_THROTTLE = 1000
 
 interface DownloadQueueItem {
   task: LX.Download.ListItem
   onProgress: (progress: LX.Download.ProgressInfo) => void
   onComplete: (taskId: string, fileSize: number) => void
   onError: (taskId: string, error: string) => void
+  onJobId: (jobId: number) => void
 }
 
 let activeCount = 0
 let queue: DownloadQueueItem[] = []
+const activeDownloads = new Map<string, number>()
 
 const formatSpeed = (bytesPerSecond: number): string => {
   if (bytesPerSecond > 1024 * 1024) {
@@ -36,12 +39,40 @@ const parseErrorMessage = (err: any): string => {
   return message
 }
 
+const createProgressHandler = (
+  onProgress: (progress: LX.Download.ProgressInfo) => void,
+) => {
+  let lastUpdate = 0
+  let lastBytes = 0
+  let lastTime = 0
+
+  return (res: { bytesWritten: number; contentLength: number; bytesWrittenPerSecond?: number }) => {
+    const progress = res.contentLength > 0 ? res.bytesWritten / res.contentLength : 0
+    const now = Date.now()
+    const dt = now - lastTime
+    const speed = dt > 0 ? ((res.bytesWritten - lastBytes) / (dt / 1000)) : 0
+
+    if (now - lastUpdate >= PROGRESS_THROTTLE || progress >= 1) {
+      onProgress({
+        progress,
+        speed: formatSpeed(speed),
+        downloaded: res.bytesWritten,
+        total: res.contentLength,
+      })
+      lastUpdate = now
+      lastBytes = res.bytesWritten
+      lastTime = now
+    }
+  }
+}
+
 const processNextInQueue = () => {
   if (queue.length === 0 || activeCount >= MAX_CONCURRENT) return
 
   const next = queue.shift()!
   activeCount++
 
+  const progressHandler = createProgressHandler(next.onProgress)
   updateTask(next.task.id, { status: 'run' })
 
   const downloadOptions: RNFS.DownloadFileOptions = {
@@ -49,25 +80,18 @@ const processNextInQueue = () => {
     toFile: next.task.metadata.filePath,
     background: true,
     discretionary: false,
-    progressInterval: 500,
+    progressInterval: PROGRESS_THROTTLE,
     begin: (res) => {
-      console.log('[Download] begin:', res.jobId)
+      activeDownloads.set(next.task.id, res.jobId)
+      next.onJobId(res.jobId)
     },
-    progress: (res) => {
-      const progress = res.contentLength > 0 ? res.bytesWritten / res.contentLength : 0
-      const speed = res.bytesWrittenPerSecond ?? 0
-      next.onProgress({
-        progress,
-        speed: formatSpeed(speed),
-        downloaded: res.bytesWritten,
-        total: res.contentLength,
-      })
-    },
+    progress: progressHandler,
   }
 
   RNFS.downloadFile(downloadOptions).promise
     .then((res) => {
       activeCount--
+      activeDownloads.delete(next.task.id)
       if (res.statusCode === 200 || res.statusCode === 206) {
         next.onComplete(next.task.id, res.bytesWritten)
       } else {
@@ -76,6 +100,7 @@ const processNextInQueue = () => {
     })
     .catch((err) => {
       activeCount--
+      activeDownloads.delete(next.task.id)
       next.onError(next.task.id, parseErrorMessage(err))
     })
     .finally(() => {
@@ -91,6 +116,8 @@ export const enqueueDownload = (
 ): void => {
   if (activeCount < MAX_CONCURRENT) {
     activeCount++
+
+    const progressHandler = createProgressHandler(onProgress)
     updateTask(task.id, { status: 'run' })
 
     const downloadOptions: RNFS.DownloadFileOptions = {
@@ -98,25 +125,17 @@ export const enqueueDownload = (
       toFile: task.metadata.filePath,
       background: true,
       discretionary: false,
-      progressInterval: 500,
+      progressInterval: PROGRESS_THROTTLE,
       begin: (res) => {
-        console.log('[Download] begin:', res.jobId)
+        activeDownloads.set(task.id, res.jobId)
       },
-      progress: (res) => {
-        const progress = res.contentLength > 0 ? res.bytesWritten / res.contentLength : 0
-        const speed = res.bytesWrittenPerSecond ?? 0
-        onProgress({
-          progress,
-          speed: formatSpeed(speed),
-          downloaded: res.bytesWritten,
-          total: res.contentLength,
-        })
-      },
+      progress: progressHandler,
     }
 
     RNFS.downloadFile(downloadOptions).promise
       .then((res) => {
         activeCount--
+        activeDownloads.delete(task.id)
         if (res.statusCode === 200 || res.statusCode === 206) {
           onComplete(task.id, res.bytesWritten)
         } else {
@@ -125,6 +144,7 @@ export const enqueueDownload = (
       })
       .catch((err) => {
         activeCount--
+        activeDownloads.delete(task.id)
         onError(task.id, parseErrorMessage(err))
       })
       .finally(() => {
@@ -132,12 +152,15 @@ export const enqueueDownload = (
       })
   } else {
     updateTask(task.id, { status: 'waiting' })
-    queue.push({ task, onProgress, onComplete, onError })
+    queue.push({ task, onProgress, onComplete, onError, onJobId: () => {} })
   }
 }
 
 export const stopDownload = (taskId: string): void => {
-  RNFS.stopDownload(taskId)
+  const jobId = activeDownloads.get(taskId)
+  if (jobId != null) {
+    RNFS.stopDownload(jobId)
+  }
 }
 
 export const getAvailableStorage = async(): Promise<number> => {
