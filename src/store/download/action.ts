@@ -19,7 +19,7 @@ export const addTask = (task: LX.Download.ListItem): void => {
 export const updateTask = (taskId: string, updates: Partial<LX.Download.ListItem>): void => {
   const index = state.tasks.findIndex(t => t.id === taskId)
   if (index > -1) {
-    Object.assign(state.tasks[index], updates)
+    state.tasks[index] = { ...state.tasks[index], ...updates }
     downloadEvent.downloadListUpdate()
   }
 }
