@@ -73,6 +73,13 @@ const defaultSetting: LX.AppSetting = {
   'download.savePath': null,
   'download.lyricType': 'embed',
 
+  'childMode.enable': false,
+  'childMode.password': '',
+  'childMode.singlePlayTime': 20,
+  'childMode.singlePlayCount': 0,
+  'childMode.restTime': 30,
+  'childMode.dailyPlayTime': 60,
+
   'sync.enable': false,
 
   // 'theme.id': 'blue_plus',

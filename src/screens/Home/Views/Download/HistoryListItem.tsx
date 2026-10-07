@@ -1,30 +1,29 @@
 import { memo } from 'react'
-import { View } from 'react-native'
+import { View, TouchableOpacity } from 'react-native'
 
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
-import { createStyle, confirmDialog } from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
-import { downloadManager } from '@/core/download'
+import CheckBox from '@/components/common/CheckBox'
 
-export default memo(({ item }: {
+export default memo(({ item, selectMode, selected, onToggleSelect, onStartSelect, onRetry, onDelete }: {
   item: LX.Download.DownloadHistoryItem
+  selectMode: boolean
+  selected: boolean
+  onToggleSelect: (id: string) => void
+  onStartSelect: (id: string) => void
+  onRetry: (id: string) => void
+  onDelete: (id: string) => void
 }) => {
   const t = useI18n()
   const theme = useTheme()
 
-  const handleDelete = async() => {
-    const confirm = await confirmDialog({
-      message: t('download_delete_confirm'),
-      bgClose: false,
-    })
-    if (confirm) {
-      await downloadManager.deleteTask(item.id)
-    }
+  const handlePress = () => {
+    if (selectMode) onToggleSelect(item.id)
   }
-
-  const handleRetry = async() => {
-    await downloadManager.retryTask(item.id)
+  const handleLongPress = () => {
+    if (!selectMode) onStartSelect(item.id)
   }
 
   const isFailed = item.status === 'failed'
@@ -32,7 +31,21 @@ export default memo(({ item }: {
   const fileSize = item.fileSize ? `${(item.fileSize / 1024 / 1024).toFixed(1)} MB` : '-'
 
   return (
-    <View style={{ ...styles.container, borderBottomColor: theme['c-border-background'] }}>
+    <TouchableOpacity
+      style={{ ...styles.container, borderBottomColor: theme['c-border-background'] }}
+      activeOpacity={selectMode ? 0.4 : 1}
+      onPress={handlePress}
+      onLongPress={handleLongPress}
+    >
+      {
+        selectMode
+          ? (
+              <View style={styles.checkBox}>
+                <CheckBox check={selected} onChange={() => { onToggleSelect(item.id) }} />
+              </View>
+            )
+          : null
+      }
       <View style={styles.info}>
         <Text numberOfLines={1} size={14} color={theme['c-font']}>{item.musicInfo.name}</Text>
         <Text numberOfLines={1} size={12} color={theme['c-font-label']}>{item.musicInfo.singer}</Text>
@@ -49,14 +62,21 @@ export default memo(({ item }: {
             : null
         }
       </View>
-      <View style={styles.action}>
-        {
-          isFailed
-            ? <Text style={styles.actionBtn} onPress={handleRetry} color={theme['c-primary-font']}>{t('download_retry')}</Text>
-            : <Text style={styles.actionBtn} onPress={handleDelete} color={theme['c-error-font']}>{t('download_delete')}</Text>
-        }
-      </View>
-    </View>
+      {
+        selectMode
+          ? null
+          : (
+              <View style={styles.action}>
+                {
+                  isFailed
+                    ? <Text style={styles.actionBtn} onPress={() => { onRetry(item.id) }} color={theme['c-primary-font']}>{t('download_retry')}</Text>
+                    : null
+                }
+                <Text style={styles.actionBtn} onPress={() => { onDelete(item.id) }} color={theme['c-error-font']}>{t('download_delete')}</Text>
+              </View>
+            )
+      }
+    </TouchableOpacity>
   )
 })
 
@@ -66,6 +86,10 @@ const styles = createStyle({
     padding: 12,
     borderBottomWidth: 1,
     alignItems: 'center',
+  },
+  checkBox: {
+    flexShrink: 0,
+    marginRight: 5,
   },
   info: {
     flex: 1,

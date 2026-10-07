@@ -6,6 +6,7 @@ import themeState from '@/store/theme/state'
 import { isUrl } from '@/utils'
 import { privateStorageDirectoryPath } from '@/utils/fs'
 import { type ImageSourcePropType } from 'react-native'
+import { MaterialColors } from '@/theme/Colors'
 
 export const BG_IMAGES = {
   'china_ink.jpg': require('./images/china_ink.jpg') as ImageSourcePropType,
@@ -76,6 +77,9 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
     ...theme.config.extInfo,
     'c-font': theme.config.themeColors['c-850'],
     'c-font-label': theme.config.themeColors['c-450'],
+    'c-error': MaterialColors.red[600],
+    'c-error-font': MaterialColors.red[600],
+    'c-success-font': MaterialColors.green[600],
     'c-primary-font': theme.config.themeColors['c-primary'],
     'c-primary-font-hover': theme.config.themeColors['c-primary-alpha-300'],
     'c-primary-font-active': theme.config.themeColors['c-primary-dark-100-alpha-200'],

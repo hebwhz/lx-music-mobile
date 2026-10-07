@@ -83,6 +83,8 @@ export const storageDataPrefix = {
   downloadTask: '@download_task__',
   downloadHistory: '@download_history',
   downloadSavePath: '@download_save_path',
+
+  childModeDailyPlayInfo: '@child_mode_daily_play_info',
 } as const
 
 // v0.x.x 版本的 data keys

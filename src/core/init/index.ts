@@ -15,6 +15,7 @@ import { checkUpdate } from '@/core/version'
 import { bootLog } from '@/utils/bootLog'
 import { cheatTip } from '@/utils/tools'
 import { downloadManager } from '@/core/download'
+import { initChildMode } from '@/core/childMode'
 
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
@@ -66,6 +67,9 @@ export default async() => {
 
   void downloadManager.init()
   bootLog('Download Manager inited.')
+
+  await initChildMode()
+  bootLog('Child mode inited.')
 
   // syncSetting()
 

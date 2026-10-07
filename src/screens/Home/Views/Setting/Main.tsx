@@ -8,6 +8,7 @@ import List from './settings/List'
 import Sync from './settings/Sync'
 import Backup from './settings/Backup'
 import Other from './settings/Other'
+import ChildMode from './settings/ChildMode'
 import Version from './settings/Version'
 import About from './settings/About'
 import Download from './settings/Download'
@@ -22,6 +23,7 @@ export const SETTING_SCREENS = [
   'backup',
   'other',
   'download',
+  'child_mode',
   'version',
   'about',
 ] as const
@@ -60,6 +62,7 @@ const Main = forwardRef<MainType, {}>((props, ref) => {
       case 'version': return <Version />
       case 'about': return <About />
       case 'download': return <Download />
+      case 'child_mode': return <ChildMode />
       case 'basic':
       default: return <Basic />
     }

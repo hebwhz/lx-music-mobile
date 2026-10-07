@@ -263,6 +263,9 @@ declare global {
     type ActiveTheme = ThemeColors & Omit<Theme['config']['extInfo'], 'bg-image'> & Pick<Theme, 'id' | 'name' | 'isDark'> & {
       'c-font': string
       'c-font-label': string
+      'c-error': string
+      'c-error-font': string
+      'c-success-font': string
       'c-primary-font': string
       'c-primary-font-hover': string
       'c-primary-font-active': string

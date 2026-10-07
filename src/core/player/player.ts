@@ -31,6 +31,15 @@ import { addDislikeInfo } from '@/core/dislikeList'
 
 // import { checkMusicFileAvailable } from '@renderer/utils/music'
 
+/**
+ * 开始播放前的检查，返回 false 表示阻止本次播放，由外部模块（如儿童模式）设置
+ */
+let beforePlayInterceptor: (() => boolean) | null = null
+export const setBeforePlayInterceptor = (interceptor: (() => boolean) | null) => {
+  beforePlayInterceptor = interceptor
+}
+const allowPlay = (): boolean => (beforePlayInterceptor ? beforePlayInterceptor() : true)
+
 const createDelayNextTimeout = (delay: number) => {
   let timeout: number | null
   const clearDelayNextTimeout = () => {
@@ -252,6 +261,7 @@ const handlePlay = async() => {
   const musicInfo = playMusicInfo.musicInfo
 
   if (!musicInfo) return
+  if (!allowPlay()) return
 
   await setStop()
   global.app_event.pause()
@@ -596,6 +606,7 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
  */
 export const play = () => {
   if (playerState.playMusicInfo.musicInfo == null) return
+  if (!allowPlay()) return
   if (isEmpty()) {
     if (createGettingUrlId(playerState.playMusicInfo.musicInfo) != global.lx.gettingUrlId) setMusicUrl(playerState.playMusicInfo.musicInfo)
     return

@@ -361,6 +361,35 @@ const deleteTask = async(taskId: string): Promise<void> => {
   }
 }
 
+/**
+ * 删除下载历史记录（支持单条、多条）
+ * @param ids 要删除的记录 id 列表
+ * @param removeFile 是否同时删除已下载的文件
+ */
+const deleteHistoryItems = async(ids: string[], removeFile: boolean = true): Promise<void> => {
+  const idList = [...new Set(ids)]
+  if (!idList.length) return
+
+  const targetHistory = downloadState.history.filter(h => idList.includes(h.id))
+  if (!targetHistory.length) return
+
+  if (removeFile) {
+    for (const item of targetHistory) {
+      if (!item.filePath) continue
+      try {
+        await unlink(item.filePath)
+      } catch {
+        // File may not exist
+      }
+    }
+  }
+
+  const newHistory = downloadState.history.filter(h => !idList.includes(h.id))
+  setHistory(newHistory)
+  await saveDownloadHistory(newHistory)
+  downloadEvent.downloadHistoryUpdate()
+}
+
 const retryTask = async(taskId: string): Promise<boolean> => {
   const historyItem = downloadState.history.find(h => h.id === taskId)
   if (!historyItem) return false
@@ -395,6 +424,7 @@ export const downloadManager = {
   addTask: addTaskWithDownload,
   isMusicInList,
   deleteTask,
+  deleteHistoryItems,
   retryTask,
   clearHistory: clearAllHistory,
   getTasks,

@@ -6,6 +6,7 @@ import { useCallback } from 'react'
 // import { AppColors } from '@/theme'
 import commonState from '@/store/common/state'
 import { setNavActiveId } from '@/core/common'
+import ChildModeLock from './components/ChildModeLock'
 
 export type { SettingScreenIds } from './Main'
 
@@ -19,7 +20,11 @@ export default () => {
     return false
   }, []))
 
-  return isHorizontalMode
-    ? <Horizontal />
-    : <Vertical />
+  return (
+    <ChildModeLock>
+      {isHorizontalMode
+        ? <Horizontal />
+        : <Vertical />}
+    </ChildModeLock>
+  )
 }

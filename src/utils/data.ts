@@ -617,3 +617,18 @@ export const setDownloadSavePath = async(path: string | null) => {
     await saveData(downloadSavePathKey, path)
   }
 }
+
+const childModeDailyPlayInfoKey = storageDataPrefix.childModeDailyPlayInfo
+
+/**
+ * 获取儿童模式每日播放时长记录
+ */
+export const getChildModeDailyPlayInfo = async(): Promise<LX.ChildMode.DailyPlayInfo> => {
+  return await getData<LX.ChildMode.DailyPlayInfo>(childModeDailyPlayInfoKey) ?? { date: '', time: 0 }
+}
+/**
+ * 保存儿童模式每日播放时长记录
+ */
+export const saveChildModeDailyPlayInfo = async(info: LX.ChildMode.DailyPlayInfo) => {
+  await saveData(childModeDailyPlayInfoKey, info)
+}

@@ -367,6 +367,36 @@ declare global {
       'download.lyricType': 'embed' | 'separate'
 
       /**
+       * 是否启用儿童模式
+       */
+      'childMode.enable': boolean
+
+      /**
+       * 儿童模式密码（保存的是密码的 MD5 摘要）
+       */
+      'childMode.password': string
+
+      /**
+       * 单次（连续）播放时长限制 unit 分钟，0 表示不限制
+       */
+      'childMode.singlePlayTime': number
+
+      /**
+       * 单次收听集数限制，听完一集时长的 80% 以上才算一集，0 表示不限制
+       */
+      'childMode.singlePlayCount': number
+
+      /**
+       * 达到单次播放时长限制后的休息时长 unit 分钟，休息结束才重新累计单次播放时长
+       */
+      'childMode.restTime': number
+
+      /**
+       * 每日播放总时长限制 unit 分钟，0 表示不限制
+       */
+      'childMode.dailyPlayTime': number
+
+      /**
        * 是否启用同步
        */
       'sync.enable': boolean
