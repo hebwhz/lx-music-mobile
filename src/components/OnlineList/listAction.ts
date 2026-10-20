@@ -9,6 +9,7 @@ import { addDislikeInfo, hasDislike } from '@/core/dislikeList'
 import playerState from '@/store/player/state'
 import musicSdk from '@/utils/musicSdk'
 import { toOldMusicInfo } from '@/utils'
+import { clearMusicUrlByMusic } from '@/utils/data'
 import { downloadManager } from '@/core/download'
 import { log } from '@/utils/log'
 
@@ -49,6 +50,15 @@ export const handleShowMusicSourceDetail = async(minfo: LX.Music.MusicInfoOnline
   void openUrl(url)
 }
 
+export const clearMusicUrl = async(musicInfo: LX.Music.MusicInfoOnline) => {
+  try {
+    await clearMusicUrlByMusic(musicInfo)
+  } catch (error) {
+    toast(global.i18n.t('list_remove_cache_fail_tip', { msg: (error as Error).message }))
+    return
+  }
+  toast(global.i18n.t('list_remove_cache_success_tip'))
+}
 
 export const handleDislikeMusic = async(musicInfo: LX.Music.MusicInfoOnline) => {
   const confirm = await confirmDialog({
