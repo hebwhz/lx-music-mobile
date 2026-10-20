@@ -18,6 +18,10 @@ declare namespace LX {
        * 单次已听完的集数
        */
       episodeCount?: number
+      /**
+       * 开始休息（暂停）的时间戳 unit 毫秒
+       */
+      pauseStartTime?: number
     }
 
     interface PlayInfo {

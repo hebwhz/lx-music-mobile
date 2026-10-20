@@ -47,8 +47,8 @@ const playTime = {
   dailyInfo: createDailyPlayInfo(),
   /** 单次（连续）播放时长 unit 秒 */
   singleTime: 0,
-  /** 已暂停时长 unit 秒 */
-  pausedTime: 0,
+  /** 开始休息（暂停）的时间戳 unit 毫秒，0 表示当前未处于休息状态 */
+  pausedStartTime: 0,
   /** 单次已听完的集数 */
   episodeCount: 0,
   /** 当前歌曲 id */
@@ -146,6 +146,14 @@ const getRestTime = (): number => {
   return Math.max(1, settingState.setting['childMode.restTime']) * 60
 }
 
+/**
+ * 已休息时长 unit 秒，用当前系统时间与开始休息的时间戳做差，避免定时器被挂起时休息时间不增加
+ */
+const getPausedTime = (): number => {
+  if (!playTime.pausedStartTime) return 0
+  return Math.max(0, (Date.now() - playTime.pausedStartTime) / 1000)
+}
+
 const isLimitEmpty = (): boolean => {
   return settingState.setting['childMode.singlePlayTime'] <= 0 &&
     settingState.setting['childMode.singlePlayCount'] <= 0 &&
@@ -161,6 +169,7 @@ const saveDailyPlayInfo = () => {
     ...playTime.dailyInfo,
     singleTime: playTime.singleTime,
     episodeCount: playTime.episodeCount,
+    pauseStartTime: playTime.pausedStartTime,
   })
 }
 
@@ -181,7 +190,7 @@ const getLimitInfo = (): LimitInfo | null => {
   const dailyPlayTime = settingState.setting['childMode.dailyPlayTime']
   const singlePlayTime = settingState.setting['childMode.singlePlayTime']
   const singlePlayCount = settingState.setting['childMode.singlePlayCount']
-  const rest = Math.max(1, Math.ceil((getRestTime() - playTime.pausedTime) / 60))
+  const rest = Math.max(1, Math.ceil((getRestTime() - getPausedTime()) / 60))
 
   if (dailyPlayTime > 0 && playTime.dailyInfo.time >= dailyPlayTime * 60) {
     return {
@@ -227,6 +236,20 @@ const notifyLimit = (info: LimitInfo) => {
  */
 const checkBeforePlay = (): boolean => {
   if (!settingState.setting['childMode.enable']) return true
+
+  // 跨天后重置当日记录
+  if (playTime.dailyInfo.date != getToday()) {
+    playTime.dailyInfo = { date: getToday(), time: 0 }
+    playTime.pausedStartTime = 0
+    resetSinglePlay()
+    saveDailyPlayInfo()
+  }
+  // 休息时间已足够时重新开始单次统计，避免定时器未运行时一直无法播放
+  if (playTime.pausedStartTime && getPausedTime() >= getRestTime()) {
+    resetSinglePlay()
+    playTime.pausedStartTime = 0
+  }
+
   const info = getLimitInfo()
   if (!info) return true
   // 集数限制：计入的最后一集还没播完时，允许继续播完这一集
@@ -237,26 +260,31 @@ const checkBeforePlay = (): boolean => {
 }
 
 const tick = () => {
-  const now = performance.now()
+  const now = Date.now()
   const delta = playTime.lastTickTime ? (now - playTime.lastTickTime) / 1000 : 0
   playTime.lastTickTime = now
 
   const today = getToday()
   if (playTime.dailyInfo.date != today) {
     playTime.dailyInfo = { date: today, time: 0 }
+    playTime.pausedStartTime = 0
+    resetSinglePlay()
     saveDailyPlayInfo()
   }
 
   const restTime = getRestTime()
 
   if (!playerState.isPlay) {
-    playTime.pausedTime += delta
-    if (playTime.pausedTime >= restTime) resetSinglePlay()
+    if (!playTime.pausedStartTime) playTime.pausedStartTime = now
+    if (getPausedTime() >= restTime) resetSinglePlay()
     return
   }
 
-  if (playTime.pausedTime >= restTime) resetSinglePlay()
-  playTime.pausedTime = 0
+  // 恢复播放时结算休息时长，休息够时长才重新开始单次统计
+  if (playTime.pausedStartTime) {
+    if (getPausedTime() >= restTime) resetSinglePlay()
+    playTime.pausedStartTime = 0
+  }
   playTime.singleTime += delta
   playTime.dailyInfo.time += delta
   countListenedMusic(delta)
@@ -272,7 +300,8 @@ const tick = () => {
   // 集数限制：等计入的最后一集播完再限制，不在 80% 处打断
   if (info.type == 'episode' && isLastCountedMusicPlaying()) return
 
-  playTime.pausedTime = 0
+  // 以当前系统时间为休息起点，休息时长不依赖定时器累加
+  playTime.pausedStartTime = now
   saveDailyPlayInfo()
   notifyLimit(info)
   if (playerState.isPlay) void pause()
@@ -280,7 +309,7 @@ const tick = () => {
 
 const startMonitor = () => {
   if (playTime.timer != null) return
-  playTime.lastTickTime = performance.now()
+  playTime.lastTickTime = Date.now()
   playTime.timer = BackgroundTimer.setInterval(() => {
     tick()
   }, TICK_TIME)
@@ -308,11 +337,13 @@ export const initChildMode = async(): Promise<void> => {
   playTime.dailyInfo = await getChildModeDailyPlayInfo()
   if (playTime.dailyInfo.date != getToday()) {
     playTime.dailyInfo = { date: getToday(), time: 0 }
+    playTime.pausedStartTime = 0
     resetSinglePlay()
     saveDailyPlayInfo()
   } else {
     playTime.singleTime = playTime.dailyInfo.singleTime ?? 0
     playTime.episodeCount = playTime.dailyInfo.episodeCount ?? 0
+    playTime.pausedStartTime = playTime.dailyInfo.pauseStartTime ?? 0
   }
   restartMonitor()
 
